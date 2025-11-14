@@ -5,32 +5,29 @@ import io
 
 def process_log_data(file_content):
     """
-    Memproses konten file log (asumsi format JSON Lines) dan meratakan data.
+    Memproses konten file log (asumsi format JSON Array) dan meratakan data.
     """
     processed_records = []
     
-    # Memproses konten baris demi baris (untuk menangani JSON Lines)
-    for i, raw_line in enumerate(file_content.splitlines()):
-        line_number = i + 1
-        line = raw_line.strip()
+    try:
+        # Menguraikan SELURUH konten file sebagai satu struktur JSON (asumsi: JSON Array)
+        data_array = json.loads(file_content)
         
-        if not line:
-            continue
+        # Memastikan data yang dimuat adalah sebuah list (array)
+        if not isinstance(data_array, list):
+            st.error("Format JSON tidak valid. Harap pastikan file Anda berisi array objek JSON (dimulai dengan '[' dan diakhiri dengan ']').")
+            return pd.DataFrame()
             
-        try:
-            # Mengurai setiap baris sebagai objek JSON
-            record = json.loads(line)
-        except json.JSONDecodeError as e:
-            # Melewatkan baris yang tidak valid dan memberikan informasi baris serta error
-            # Mencetak konten baris, membatasi hingga 50 karakter
-            content_preview = line[:50].replace('\n', '\\n').strip()
-            st.warning(
-                f"Baris {line_number} dilewati (Gagal Parse JSON). "
-                f"Pesan Error: {e}. "
-                f"Konten Baris: '{content_preview}...'"
-            )
-            continue
-            
+    except json.JSONDecodeError as e:
+        st.error(f"Gagal mengurai file JSON. Pastikan file Anda adalah JSON yang valid dan lengkap. Pesan Error: {e}")
+        return pd.DataFrame()
+    except Exception as e:
+        st.error(f"Terjadi kesalahan tak terduga saat memproses file: {e}")
+        return pd.DataFrame()
+        
+    # Memproses setiap record (objek) dalam array
+    for record in data_array:
+        
         # Data dasar
         data = {
             "item_id": record.get("item_id"),
@@ -52,7 +49,7 @@ def process_log_data(file_content):
             "fix_deadline_time": None,
         }
         
-        # Meratakan detail status (mengambil elemen pertama dari array)
+        # Meratakan detail status (mengambil elemen pertama dari array, jika ada)
         details = record.get("item_status_details")
         if details and isinstance(details, list) and len(details) > 0:
             first_detail = details[0]
@@ -77,13 +74,13 @@ st.set_page_config(
 )
 
 st.title("Log JSON ke Konverter CSV")
-st.markdown("Unggah file teks (JSON Lines) log data Anda di sini untuk meratakan data dan mengunduh file CSV.")
+st.markdown("Unggah file teks (JSON Array) log data Anda di sini untuk meratakan data dan mengunduh file CSV.")
 
 # Mengunggah File
 uploaded_file = st.file_uploader(
-    "Pilih File Log (.txt atau .jsonl)",
-    type=["txt", "jsonl"],
-    help="Asumsikan setiap baris dalam file adalah objek JSON yang terpisah (JSON Lines)."
+    "Pilih File Log (.txt atau .json)",
+    type=["txt", "json"],
+    help="Pastikan file Anda berisi array objek JSON (dimulai dengan '[' dan diakhiri dengan ']')."
 )
 
 df = pd.DataFrame()
@@ -96,14 +93,14 @@ if uploaded_file is not None:
         # Memproses data
         df = process_log_data(file_content)
         
-        st.success(f"File berhasil diproses! Ditemukan {len(df)} baris data yang valid.")
-        
-        # Menampilkan preview DataFrame
-        st.subheader("Pratinjau Data yang Diproses")
-        st.dataframe(df.head(10), use_container_width=True)
-
-        # Tombol Unduh
         if not df.empty:
+            st.success(f"File berhasil diproses! Ditemukan {len(df)} baris data yang valid.")
+            
+            # Menampilkan preview DataFrame
+            st.subheader("Pratinjau Data yang Diproses")
+            st.dataframe(df.head(10), use_container_width=True)
+
+            # Tombol Unduh
             csv_data = convert_df_to_csv(df)
             
             st.download_button(
@@ -117,7 +114,7 @@ if uploaded_file is not None:
         
     except Exception as e:
         st.error(f"Terjadi kesalahan saat memproses file: {e}")
-        st.caption("Pastikan format file Anda adalah JSON Lines (satu objek JSON per baris).")
+        st.caption("Pastikan format file Anda adalah JSON Array yang valid.")
 
 # Menambahkan contoh format data untuk panduan
 st.markdown("---")

@@ -10,17 +10,25 @@ def process_log_data(file_content):
     processed_records = []
     
     # Memproses konten baris demi baris (untuk menangani JSON Lines)
-    for line in file_content.splitlines():
-        line = line.strip()
+    for i, raw_line in enumerate(file_content.splitlines()):
+        line_number = i + 1
+        line = raw_line.strip()
+        
         if not line:
             continue
             
         try:
             # Mengurai setiap baris sebagai objek JSON
             record = json.loads(line)
-        except json.JSONDecodeError:
-            # Melewatkan baris yang tidak valid atau log error
-            st.warning(f"Melewatkan baris karena kesalahan penguraian JSON: {line[:50]}...")
+        except json.JSONDecodeError as e:
+            # Melewatkan baris yang tidak valid dan memberikan informasi baris serta error
+            # Mencetak konten baris, membatasi hingga 50 karakter
+            content_preview = line[:50].replace('\n', '\\n').strip()
+            st.warning(
+                f"Baris {line_number} dilewati (Gagal Parse JSON). "
+                f"Pesan Error: {e}. "
+                f"Konten Baris: '{content_preview}...'"
+            )
             continue
             
         # Data dasar
